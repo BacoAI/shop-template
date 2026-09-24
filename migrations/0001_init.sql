@@ -1,7 +1,7 @@
 -- ═══════════════════════════════════════════════════════════
 --  販售系統 v2 — D1 資料表
---  建立：npx wrangler d1 execute my-shop-db --remote --file=./schema-v2.sql
---  本機：npx wrangler d1 execute my-shop-db --local  --file=./schema-v2.sql
+--  這個檔不用自己跑 —— `npm run deploy` 會自動執行它建好資料表。
+--  （用的是 Cloudflare 的 migrations 機制，跑過的會記錄下來，不會重複建。）
 --
 --  這個檔可以重複執行：所有建表都是 IF NOT EXISTS、
 --  所有預設資料都是 INSERT OR IGNORE（已經有的不會被蓋掉）。

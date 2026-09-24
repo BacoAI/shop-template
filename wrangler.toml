@@ -1,4 +1,4 @@
-name = "my-shop"                 # 你的網站名稱（會變成網址的一部分：my-shop.你的帳號.workers.dev）
+name = "bake-shop"               # 你的網站名稱（會變成網址的一部分：bake-shop.你的帳號.workers.dev）
 main = "src/worker.js"
 compatibility_date = "2025-01-01"
 
@@ -15,7 +15,7 @@ run_worker_first = true
 #    幫你建一個新的資料庫並接上去。不要自己填別人的編號。
 [[d1_databases]]
 binding = "DB"
-database_name = "my-shop-db"
+database_name = "bake-shop-db"
 
 # 商品照片與首頁大圖存這裡（Cloudflare KV）。不用綁信用卡，免費額度 1GB、單檔 25MB，小店用不完。
 # ⚠ 同上，沒有 id 是刻意的，第一次 deploy 會自動建。
