@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-s="page_title">購物車</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@200;300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+  <div class="topbar"><div class="back" onclick="location.href='index.html'">‹</div><h2>購物車</h2></div>
+
+  <div class="wrap">
+    <!-- 上半部：會跟著數量、日期變動 -->
+    <div id="top"><div class="empty">載入中…</div></div>
+
+    <!-- 下半部：表單，只畫一次，不會被重畫洗掉 -->
+    <div id="form" style="display:none">
+
+      <div class="card" style="margin-top:14px">
+        <div class="sec-title">寄件人資訊</div>
+        <div class="field"><label>姓名 <span class="req">*</span></label><input id="bName" placeholder="訂購人姓名"></div>
+        <div class="field"><label>電話 <span class="req">*</span></label><input id="bPhone" placeholder="09xx-xxx-xxx" inputmode="tel"></div>
+        <div class="field"><label>Email <span class="req">*</span></label><input id="bMail" placeholder="訂單通知會寄到這裡" inputmode="email"></div>
+        <div class="field"><label>地址 <span class="req">*</span></label>
+          <div class="addr-row">
+            <select id="bCounty"><option value="">縣市</option></select>
+            <select id="bDist"><option value="">區域</option></select>
+          </div>
+          <input id="bAddr" placeholder="街道、門牌號碼" style="margin-top:9px">
+          <div class="zip-show">郵遞區號<b id="bZip">—</b></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <div class="sec-title">收件人資訊</div>
+        <div class="samebtn" id="sameBtn" onclick="toggleSame()"><div class="box"></div>收件人與寄件人相同</div>
+        <div class="field"><label>姓名 <span class="req">*</span></label><input id="rName" placeholder="收件人姓名"></div>
+        <div class="field"><label>電話 <span class="req">*</span></label><input id="rPhone" placeholder="09xx-xxx-xxx" inputmode="tel"></div>
+        <div class="field"><label>Email</label><input id="rMail" placeholder="選填" inputmode="email"></div>
+        <div class="field"><label>地址 <span class="req">*</span></label>
+          <div class="addr-row">
+            <select id="rCounty"><option value="">縣市</option></select>
+            <select id="rDist"><option value="">區域</option></select>
+          </div>
+          <input id="rAddr" placeholder="街道、門牌號碼" style="margin-top:9px">
+          <div class="zip-show">郵遞區號<b id="rZip">—</b></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px">
+        <div class="sec-title">匯款資訊</div>
+        <div class="pay-box" id="payBox">
+          <div class="pt" data-s="pay_hint">① 請先匯款 → ② 填下方後五碼</div>
+          <div class="pb" data-s="bank_name"></div>
+          <div class="prow">
+            <span class="pa" id="acct" data-s="bank_account"></span>
+            <button class="pc" onclick="copyAcct()">複製</button>
+          </div>
+        </div>
+
+        <div class="field" style="margin-top:16px">
+          <label>匯款帳號末五碼 <span class="req">*</span></label>
+          <input id="last5" placeholder="例：12345" maxlength="5" inputmode="numeric">
+        </div>
+        <div class="field"><label>備註（選填）</label><textarea id="note" placeholder="有什麼想讓我們知道的"></textarea></div>
+
+        <button class="btn" id="subBtn" onclick="submitOrder()">送 出 訂 單</button>
+        <div id="subHint" style="text-align:center;font-size:12.5px;color:var(--ink-soft);margin-top:11px"></div>
+
+        <div class="note-blk" data-s="cart_note"></div>
+      </div>
+
+      <footer data-s="footer_text"></footer>
+    </div>
+  </div>
+</div>
+
+<script src="twzip.js"></script>
+<script src="app.js"></script>
+<script>
+let CART = [], QUOTE = null, DAYS = [], PICK = null, CALM = null, SAME = false, INFO = {}, LEAD = 3;
+
+// ── 載入 ────────────────────────────────────────
+async function load() {
+  CART = cartRead();
+  if (!CART.length) return renderEmpty();
+
+  // 商品名稱與照片一律問後端（前端不存這些，才不會跟後台改的內容對不上）。
+  // 但只抓「還沒抓過的」，而且平行抓 —— 改數量時這些完全不會變，不必重來。
+  const need = CART.filter((c) => !INFO[c.id]);
+  await Promise.all(need.map(async (c) => {
+    const r = await api("/api/shop/product?id=" + c.id);
+    if (r.ok) {
+      INFO[c.id] = r.product;
+      INFO[c.id]._addons = {};
+      (r.addons || []).forEach((a) => { INFO[c.id]._addons[a.id] = a; });
+    }
+  }));
+
+  // 已經停售的自動移除
+  const gone = CART.filter((c) => !INFO[c.id]);
+  if (gone.length) {
+    CART = CART.filter((c) => INFO[c.id]);
+    cartWrite(CART);
+    toast("有商品已停售，已從購物車移除");
+    if (!CART.length) return renderEmpty();
+  }
+
+  await refresh();
+}
+
+// 重新跟後端要「金額」與「可選日期」—— 兩支同時問，不要排隊
+async function refresh() {
+  const payload = { items: CART.map((c) => ({ id: c.id, qty: c.qty, addons: c.addons || [] })) };
+  const [q, d] = await Promise.all([
+    api("/api/shop/quote", payload),
+    api("/api/shop/dates", payload),
+  ]);
+  QUOTE = q;
+  DAYS = d.ok ? d.days : [];
+  LEAD = d.lead_days || 3;
+  if (PICK && !DAYS.find((x) => x.date === PICK)) PICK = null;
+  if (!CALM) CALM = DAYS.length ? DAYS[0].date.slice(0, 7) : new Date().toISOString().slice(0, 7);
+  render();
+}
+
+// 連按 +／- 時不要每按一下就問一次後端，等手停下來再問
+let _refreshTimer;
+function scheduleRefresh() {
+  clearTimeout(_refreshTimer);
+  _refreshTimer = setTimeout(refresh, 260);
+}
+
+// 畫面上的金額 —— 用前端同一套規則即時算，按下去馬上看到數字變。
+// ⚠ 這只是給客人看的預估：真正寫進訂單的金額一律由後端 calcAmount() 決定。
+function estimate() {
+  let sub = 0;
+  for (const c of CART) {
+    const p = INFO[c.id];
+    if (!p) continue;
+    sub += p.price * c.qty;
+    for (const a of c.addons || []) {
+      const ad = (p._addons || {})[a.id];
+      if (ad) sub += ad.price * a.qty;
+    }
+  }
+  if (!QUOTE || !QUOTE.ok) return Object.assign({}, QUOTE || {}, { subtotal: sub });
+  const free = QUOTE.threshold > 0 && sub >= QUOTE.threshold;
+  const fee = free ? 0 : QUOTE.baseFee;
+  return Object.assign({}, QUOTE, {
+    subtotal: sub, shipFee: fee, amount: sub + fee,
+    freeShipped: free, gap: Math.max(0, QUOTE.threshold - sub),
+  });
+}
+
+function renderEmpty() {
+  document.getElementById("top").innerHTML =
+    '<div class="empty">購物車是空的<div style="margin-top:20px">'
+    + '<button class="btn ghost" onclick="location.href=\'index.html\'">去 逛 逛</button></div></div>';
+  document.getElementById("form").style.display = "none";
+}
+
+// ── 上半部 ──────────────────────────────────────
+function render() {
+  const conflict = QUOTE && QUOTE.conflict;
+  const m = estimate();
+
+  document.getElementById("top").innerHTML = `
+  <div class="card">
+    <div class="sec-title">選擇出貨日期</div>
+    <div class="date-slot" onclick="toggleCal()">
+      ${PICK ? `<span class="picked">${fmtDate(PICK)}</span>` : `<span class="none">尚未選擇</span>`}
+      <span style="color:var(--ink-soft);font-size:13px">${PICK ? "更改" : "點此選擇"} ›</span>
+    </div>
+    <div id="calBox" style="display:${PICK ? "none" : "block"};margin-top:16px">
+      ${calHTML()}
+      <div class="cal-why">只顯示購物車內每一項都有貨的日子。最快可選 ${LEAD} 天後。</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="sec-title">訂購內容</div>
+    ${CART.map((c, i) => {
+      const p = INFO[c.id];
+      return `
+      <div class="item">
+        <img src="${imgSrc(p.thumb || (p.photos || [])[0])}" alt="">
+        <div class="im">
+          <div class="inm">${p.name}</div>
+          <div class="isub">${p.ship_methods.map(shipLabel).join(" / ")}</div>
+          <div class="ir">
+            <span class="ip">${money(p.price * c.qty)}</span>
+            <div style="display:flex;align-items:center;gap:12px">
+              <span class="del" onclick="rmItem(${i})">移除</span>
+              <div class="stepper sm">
+                <button onclick="itemQty(${i},-1)">−</button><span class="val">${c.qty}</span><button onclick="itemQty(${i},1)">＋</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      ${(c.addons || []).map((a) => {
+        const ad = (p._addons || {})[a.id];
+        if (!ad) return "";
+        return `<div class="sub-addon"><span>＋ ${ad.name} × ${a.qty}</span><span class="sa-p">${money(ad.price * a.qty)}</span></div>`;
+      }).join("")}`;
+    }).join("")}
+
+    ${conflict
+      ? `<div class="conflict"><b>這些商品沒辦法一起寄</b><br>
+          ${(QUOTE.detail || []).map((d) => `${d.name}（${d.methods.join("/")}）`).join("<br>")}<br>
+          <span style="font-size:12px">請分成兩張訂單，或移除其中一項。</span></div>`
+      : `<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);display:flex;justify-content:space-between;font-size:13.5px">
+          <span style="color:var(--ink-soft)">配送方式</span>
+          <span><span class="tag ${m.ship_method}" style="margin:0">${m.ship_label || ""}</span></span>
+        </div>`}
+
+    ${!conflict && m.ok && !m.freeShipped && m.threshold > 0
+      ? `<div class="free-nudge">再買 <b>${money(m.gap)}</b> 就免運（${m.ship_label}滿 ${money(m.threshold)} 免運）</div>` : ""}
+    ${!conflict && m.ok && m.freeShipped ? `<div class="free-got">✓ 已達免運，這筆不用運費</div>` : ""}
+
+    <div class="total">
+      <div class="line"><span>商品小計</span><span>${money(m.subtotal || 0)}</span></div>
+      ${!conflict && m.ok ? `<div class="line ${m.freeShipped ? "freed" : ""}"><span>運費</span><span>${
+        m.freeShipped ? `<span class="was">${money(m.baseFee)}</span>$0` : money(m.shipFee)}</span></div>` : ""}
+      <div class="line sum"><span>應付金額</span><b>${money(conflict ? m.subtotal : (m.amount || 0))}</b></div>
+    </div>
+  </div>`;
+
+  document.getElementById("form").style.display = conflict ? "none" : "block";
+  updateSubmit();
+}
+
+function shipLabel(m) { return { normal: "常溫", cold: "冷藏", frozen: "冷凍" }[m] || m; }
+
+// ── 日曆 ────────────────────────────────────────
+function calHTML() {
+  const [y, mo] = CALM.split("-").map(Number);
+  const first = new Date(y, mo - 1, 1), blanks = first.getDay();
+  const days = new Date(y, mo, 0).getDate();
+  const okMap = {}; DAYS.forEach((d) => okMap[d.date] = d.left);
+
+  let h = `<div class="cal-head"><button onclick="mvMonth(-1)">‹</button><b>${y} 年 ${mo} 月</b><button onclick="mvMonth(1)">›</button></div><div class="cal">`;
+  ["日", "一", "二", "三", "四", "五", "六"].forEach((w) => h += `<div class="wd">${w}</div>`);
+  for (let i = 0; i < blanks; i++) h += `<div class="d blank"></div>`;
+  for (let i = 1; i <= days; i++) {
+    const key = `${y}-${String(mo).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
+    const left = okMap[key];
+    const can = left !== undefined;
+    h += `<div class="d ${can ? "" : "off"} ${PICK === key ? "pick" : ""}"
+           ${can ? `onclick="pick('${key}')"` : `onclick="toast('這天沒有可訂購的數量')"`}>${i}${
+             can ? `<small>餘${left}</small>` : ""}</div>`;
+  }
+  return h + "</div>";
+}
+
+function mvMonth(d) {
+  const [y, m] = CALM.split("-").map(Number);
+  const t = new Date(y, m - 1 + d, 1);
+  CALM = t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0");
+  render();
+}
+function pick(k) { PICK = k; render(); }
+function toggleCal() { const b = document.getElementById("calBox"); b.style.display = b.style.display === "none" ? "block" : "none"; }
+
+// ── 數量 ────────────────────────────────────────
+// 按下去「立刻」重畫，數量與金額馬上變；跟後端確認的事丟到背景做
+function itemQty(i, d) {
+  const c = CART[i];
+  const max = INFO[c.id].max_per_order;
+  const next = c.qty + d;
+  if (next < 1) return;
+  if (max > 0 && next > max) { toast(`${INFO[c.id].name} 每張訂單最多 ${max} 個`); return; }
+  c.qty = next;
+  cartWrite(CART);
+  render();
+  scheduleRefresh();
+}
+
+function rmItem(i) {
+  CART.splice(i, 1);
+  cartWrite(CART);
+  updateFab();
+  if (!CART.length) return renderEmpty();
+  render();
+  scheduleRefresh();
+}
+
+// ── 地址下拉 ────────────────────────────────────
+function fillCounties() {
+  for (const p of ["b", "r"]) {
+    const sel = document.getElementById(p + "County");
+    Object.keys(TWZIP).forEach((c) => {
+      const o = document.createElement("option"); o.value = c; o.textContent = c; sel.appendChild(o);
+    });
+    sel.addEventListener("change", () => fillDistricts(p));
+    document.getElementById(p + "Dist").addEventListener("change", () => showZip(p));
+  }
+}
+function fillDistricts(p, keep) {
+  const c = document.getElementById(p + "County").value;
+  const sel = document.getElementById(p + "Dist");
+  sel.innerHTML = '<option value="">區域</option>';
+  Object.keys(TWZIP[c] || {}).forEach((d) => {
+    const o = document.createElement("option"); o.value = d; o.textContent = d; sel.appendChild(o);
+  });
+  if (keep) sel.value = keep;
+  showZip(p);
+}
+function showZip(p) {
+  const c = document.getElementById(p + "County").value, d = document.getElementById(p + "Dist").value;
+  document.getElementById(p + "Zip").textContent = (TWZIP[c] || {})[d] || "—";
+}
+
+function toggleSame() {
+  SAME = !SAME;
+  document.getElementById("sameBtn").classList.toggle("on", SAME);
+  const v = (id) => document.getElementById(id).value;
+  const ro = (id, on) => {
+    const e = document.getElementById(id);
+    if (e.tagName === "SELECT") e.disabled = on; else e.readOnly = on;
+  };
+  if (SAME) {
+    document.getElementById("rName").value = v("bName");
+    document.getElementById("rPhone").value = v("bPhone");
+    document.getElementById("rMail").value = v("bMail");
+    document.getElementById("rAddr").value = v("bAddr");
+    document.getElementById("rCounty").value = v("bCounty");
+    fillDistricts("r", v("bDist"));
+  }
+  ["rName", "rPhone", "rMail", "rAddr", "rCounty", "rDist"].forEach((id) => ro(id, SAME));
+}
+
+function copyAcct() {
+  const t = document.getElementById("acct").textContent.trim();
+  if (!t) { toast("店家還沒設定匯款帳號"); return; }
+  navigator.clipboard.writeText(t).then(() => toast("已複製帳號")).catch(() => toast("複製失敗，請手動選取"));
+}
+
+// ── 下單 ────────────────────────────────────────
+function updateSubmit() {
+  const btn = document.getElementById("subBtn");
+  if (!btn) return;
+  const ready = !!PICK && QUOTE && QUOTE.ok;
+  btn.disabled = !ready;
+  document.getElementById("subHint").textContent = PICK ? "" : "請先選擇出貨日期";
+}
+
+async function submitOrder() {
+  const v = (id) => (document.getElementById(id).value || "").trim();
+  const need = [["bName", "寄件人姓名"], ["bPhone", "寄件人電話"], ["bMail", "寄件人 Email"],
+                ["bCounty", "寄件人縣市"], ["bDist", "寄件人區域"], ["bAddr", "寄件人地址"],
+                ["rName", "收件人姓名"], ["rPhone", "收件人電話"],
+                ["rCounty", "收件人縣市"], ["rDist", "收件人區域"], ["rAddr", "收件人地址"],
+                ["last5", "匯款帳號末五碼"]];
+  for (const [id, label] of need) {
+    if (!v(id)) { toast("請填" + label); document.getElementById(id).focus(); return; }
+  }
+  if (!PICK) { toast("請選擇出貨日期"); return; }
+
+  const btn = document.getElementById("subBtn");
+  btn.disabled = true; btn.textContent = "送 出 中 …";
+
+  const r = await api("/api/shop/order", {
+    ship_date: PICK,
+    items: CART.map((c) => ({ id: c.id, qty: c.qty, addons: c.addons || [] })),
+    buyer_name: v("bName"), buyer_phone: v("bPhone"), buyer_email: v("bMail"),
+    buyer_county: v("bCounty"), buyer_district: v("bDist"),
+    buyer_zip: document.getElementById("bZip").textContent.replace("—", ""), buyer_address: v("bAddr"),
+    rcpt_name: v("rName"), rcpt_phone: v("rPhone"), rcpt_email: v("rMail"),
+    rcpt_county: v("rCounty"), rcpt_district: v("rDist"),
+    rcpt_zip: document.getElementById("rZip").textContent.replace("—", ""), rcpt_address: v("rAddr"),
+    last5: v("last5"), note: v("note"),
+  });
+
+  if (!r.ok) {
+    btn.disabled = false; btn.textContent = "送 出 訂 單";
+    toast(r.message || "訂單沒有成立，請再試一次");
+    if (r.error === "no_stock" || r.error === "product_gone") { PICK = null; await load(); }
+    return;
+  }
+
+  sessionStorage.setItem("last_order", JSON.stringify(r));
+  cartClear();
+  location.href = "done.html";
+}
+
+// ── 啟動 ────────────────────────────────────────
+fillCounties();
+load();
+</script>
+</body>
+</html>

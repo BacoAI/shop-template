@@ -1,0 +1,16 @@
+{
+  "name": "shop-template",
+  "version": "1.0.0",
+  "description": "小型訂購網站模板 — 多商品、購物車、擋超賣、宅配匯款（Cloudflare Worker + D1）",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler d1 migrations apply DB --remote && wrangler deploy",
+    "tail": "wrangler tail",
+    "db:init": "wrangler d1 migrations apply DB --remote",
+    "db:init:local": "wrangler d1 migrations apply DB --local"
+  },
+  "devDependencies": {
+    "wrangler": "^4.45.0"
+  }
+}

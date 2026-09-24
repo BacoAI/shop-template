@@ -1,0 +1,32 @@
+name = "my-shop"                 # 你的網站名稱（會變成網址的一部分：my-shop.你的帳號.workers.dev）
+main = "src/worker.js"
+compatibility_date = "2025-01-01"
+
+# 前台四頁、後台頁、郵遞區號、照片都放 public/，Worker 自動當靜態檔送
+[assets]
+directory = "./public"
+binding = "ASSETS"
+# 預設是「靜態檔優先、Worker 撿剩下的」，那樣前台頁面會直接被送出去、跳過 Worker，
+# 後台設定就填不進去。這行改成「一律先進 Worker」，Worker 沒接手的再交給靜態檔。
+run_worker_first = true
+
+# D1 資料庫：存商品、庫存日曆、訂單、後台帳號。擋超賣靠它的原子更新。
+# ⚠ 這裡沒有 database_id 是刻意的 —— 第一次 deploy 時 Cloudflare 會自動
+#    幫你建一個新的資料庫並接上去。不要自己填別人的編號。
+[[d1_databases]]
+binding = "DB"
+database_name = "my-shop-db"
+
+# 商品照片與首頁大圖存這裡（Cloudflare KV）。不用綁信用卡，免費額度 1GB、單檔 25MB，小店用不完。
+# ⚠ 同上，沒有 id 是刻意的，第一次 deploy 會自動建。
+[[kv_namespaces]]
+binding = "IMG"
+
+# 運費在後台「運費管理」設定（常溫 / 冷藏 / 冷凍各自一組），不寫在這裡。
+
+# ⚠ 後台密碼不在這裡設，也不用設環境變數。
+#    第一次登入用 admin / admin，系統會要你當場換成自己的帳號名與密碼。
+
+# 機密不寫這裡！用指令設定，不會進程式碼或 git：
+#   npx wrangler secret put RESEND_API_KEY   ← 選填：有人下單時寄通知信給你
+#   npx wrangler secret put MAIL_FROM        ← 選填：你在 Resend 驗證過的寄件地址

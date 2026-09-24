@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-s="page_title">訂購</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@200;300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+  <div class="wrap">
+
+    <header>
+      <div class="brand"><span data-s="site_title">銅鑼燒</span><small data-s-hide="site_subtitle" data-s="site_subtitle">D O R A Y A K I</small></div>
+    </header>
+
+    <div class="hero" data-photos>
+      <img src="dorayaki.jpg" alt="">
+    </div>
+
+    <div class="leaf">❋ ❋ ❋</div>
+
+    <!-- 暫停接單時顯示這一塊 -->
+    <div class="notice" id="closed" style="display:none">
+      <h2 data-s="closed_title">目前暫停接單</h2>
+      <p id="closedText" data-s="closed_notice">下次開放請鎖定 IG</p>
+    </div>
+
+    <div id="shop">
+      <div class="sec-title" data-s="home_section_title">本店商品</div>
+      <div class="plist" id="plist">
+        <div class="empty" style="padding:30px 0">載入中…</div>
+      </div>
+    </div>
+
+    <footer data-s="footer_text">銅鑼燒</footer>
+  </div>
+
+  <div class="fab" id="fab" onclick="location.href='cart.html'">
+    <svg viewBox="0 0 24 24"><path d="M6 6h15l-1.5 9h-12z"/><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M6 6L5 2H2"/></svg>
+    <b id="fabN">0</b>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+(async function () {
+  const r = await api("/api/shop/home");
+
+  if (!r.ok) {
+    document.getElementById("shop").style.display = "none";
+    const n = document.getElementById("closed");
+    n.style.display = "block";
+    n.querySelector("h2").textContent = "暫時無法載入";
+    document.getElementById("closedText").textContent = "請稍後再試一次";
+    return;
+  }
+
+  // 暫停接單：商品區整個收起來，只留公告
+  if (!r.open) {
+    document.getElementById("shop").style.display = "none";
+    document.getElementById("fab").style.display = "none";
+    document.getElementById("closed").style.display = "block";
+    if (r.site.closed_notice) document.getElementById("closedText").textContent = r.site.closed_notice;
+    return;
+  }
+
+  const list = document.getElementById("plist");
+  if (!r.products.length) {
+    list.innerHTML = '<div class="empty" style="padding:30px 0">目前還沒有上架的商品</div>';
+    return;
+  }
+
+  list.innerHTML = r.products.map((p) => `
+    <div class="pcard" onclick="location.href='product.html?id=${p.id}'">
+      <img class="thumb" src="${imgSrc(p.thumb)}" alt="">
+      <div class="meta">
+        <div class="nm">${p.name}</div>
+        ${p.subtitle ? `<div class="sub">${p.subtitle}</div>` : ""}
+        <div class="pr">${money(p.price)}</div>
+      </div>
+      <div class="arrow">›</div>
+    </div>`).join("");
+})();
+</script>
+</body>
+</html>

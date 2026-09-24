@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-s="page_title">訂單已成立</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@200;300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+  <div class="wrap">
+    <header>
+      <div class="brand"><span data-s="site_title">銅鑼燒</span><small data-s-hide="site_subtitle" data-s="site_subtitle">D O R A Y A K I</small></div>
+    </header>
+
+    <div id="body"><div class="empty">載入中…</div></div>
+
+    <div style="margin-top:18px"><button class="btn ghost" onclick="location.href='index.html'">回 到 首 頁</button></div>
+    <footer data-s="footer_text"></footer>
+  </div>
+</div>
+
+<!-- 文案由伺服器填進來（後台改了就會跟著變）-->
+<div style="display:none">
+  <span id="t_title" data-s="success_title">訂單已成立</span>
+  <span id="t_sub" data-s="success_sub"></span>
+  <span id="t_note" data-s="success_note"></span>
+  <span id="t_bankname" data-s="bank_name"></span>
+  <span id="t_bankacct" data-s="bank_account"></span>
+</div>
+
+<script src="app.js"></script>
+<script>
+(function () {
+  let o = null;
+  try { o = JSON.parse(sessionStorage.getItem("last_order") || "null"); } catch (e) {}
+
+  const box = document.getElementById("body");
+
+  // 直接開這一頁（沒有剛下的單）→ 不要假裝有訂單
+  if (!o || !o.order_no) {
+    box.innerHTML = '<div class="notice"><h2>沒有可以顯示的訂單</h2>'
+      + '<p>這個頁面只會在你剛下單之後顯示。<br>要查訂單請直接聯絡我們。</p></div>';
+    return;
+  }
+
+  const txt = (id) => (document.getElementById(id).innerHTML || "").trim();
+  const bankName = txt("t_bankname"), bankAcct = txt("t_bankacct");
+
+  const itemRows = (o.items || []).map((it) => {
+    const adds = (it.addons || []).map((a) => `<br><span style="color:var(--ink-soft);font-size:12px">＋ ${a.name} × ${a.qty}</span>`).join("");
+    return `${it.name} × ${it.qty}${adds}`;
+  }).join("<br>");
+
+  box.innerHTML = `
+    <div class="success">
+      <div class="si"></div>
+      <h2>${txt("t_title") || "訂單已成立"}</h2>
+      ${txt("t_sub") ? `<p class="ss">${txt("t_sub")}</p>` : ""}
+
+      <div class="ono"><small>訂 單 編 號</small><span>${o.order_no}</span></div>
+
+      ${bankAcct ? `
+      <div style="background:#fff;border:1px dashed #d8cdb6;border-radius:14px;padding:14px 18px;text-align:left">
+        ${bankName ? `<div class="pb-row"><span>銀行</span><b>${bankName}</b></div>` : ""}
+        <div class="pb-row"><span>帳號</span><b style="font-family:'Noto Serif TC',serif;font-size:16px;letter-spacing:.06em">${bankAcct}</b></div>
+        <div class="pb-row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:11px">
+          <span>應付金額</span>
+          <b style="font-family:'Noto Serif TC',serif;font-size:19px;color:var(--warn)">${money(o.amount)}</b>
+        </div>
+      </div>` : `
+      <div style="background:#fff;border:1px dashed #d8cdb6;border-radius:14px;padding:14px 18px;text-align:left">
+        <div class="pb-row"><span>應付金額</span>
+          <b style="font-family:'Noto Serif TC',serif;font-size:19px;color:var(--warn)">${money(o.amount)}</b></div>
+      </div>`}
+
+      <div style="text-align:left;margin-top:18px;font-size:13px;color:var(--ink-soft);line-height:1.9">
+        <div class="pb-row"><span>出貨日</span><b style="color:var(--ink)">${fmtDate(o.ship_date)}</b></div>
+        <div class="pb-row"><span>配送方式</span><b style="color:var(--ink)">${o.ship_label || ""}</b></div>
+        <div class="pb-row" style="align-items:flex-start">
+          <span style="flex-shrink:0">訂購內容</span>
+          <b style="color:var(--ink);text-align:right;padding-left:20px">${itemRows}</b>
+        </div>
+        <div class="pb-row"><span>商品小計</span><b style="color:var(--ink)">${money(o.subtotal)}</b></div>
+        <div class="pb-row"><span>運費</span><b style="color:var(--ink)">${o.freeShipped ? "免運" : money(o.shipFee)}</b></div>
+      </div>
+
+      ${txt("t_note") ? `<p class="mail-note">${txt("t_note")}</p>` : ""}
+    </div>`;
+
+  // 顯示過就清掉，重新整理不會重複出現（也避免別人借手機看到）
+  sessionStorage.removeItem("last_order");
+})();
+</script>
+</body>
+</html>

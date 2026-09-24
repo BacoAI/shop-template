@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title data-s="page_title">商品介紹</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@200;300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="page">
+  <div class="topbar"><div class="back" onclick="location.href='index.html'">‹</div><h2>商品介紹</h2></div>
+  <div class="wrap" id="body"><div class="empty">載入中…</div></div>
+
+  <div class="fab" onclick="location.href='cart.html'">
+    <svg viewBox="0 0 24 24"><path d="M6 6h15l-1.5 9h-12z"/><circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M6 6L5 2H2"/></svg>
+    <b id="fabN">0</b>
+  </div>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="sheet-in">
+    <h3>已加入購物車</h3>
+    <p id="sheetTxt">—</p>
+    <button class="btn" onclick="location.href='cart.html'">去 購 物 車 結 帳</button>
+    <button class="btn ghost" onclick="location.href='index.html'">繼 續 逛 逛</button>
+  </div>
+</div>
+
+<script src="app.js"></script>
+<script>
+let P = null, QTY = 1, ADDONS = {}, SHIP = [];
+
+(async function () {
+  const id = new URLSearchParams(location.search).get("id");
+  const r = await api("/api/shop/product?id=" + encodeURIComponent(id || ""));
+  const box = document.getElementById("body");
+
+  if (!r.ok) {
+    box.innerHTML = '<div class="notice"><h2>找不到這個商品</h2><p>它可能已經停售了</p>'
+      + '<div style="margin-top:18px"><button class="btn ghost" onclick="location.href=\'index.html\'">回 首 頁</button></div></div>';
+    return;
+  }
+
+  P = r.product; SHIP = r.shipping;
+  const photos = P.photos && P.photos.length ? P.photos : [P.thumb];
+  const shipLabel = (m) => (SHIP.find((s) => s.method === m) || {}).label || m;
+
+  box.innerHTML = `
+    <div class="gallery">
+      <img id="pdImg" src="${imgSrc(photos[0])}" alt="">
+      ${photos.length > 1 ? `<div class="dots" style="position:absolute;bottom:12px;left:0;right:0">
+        ${photos.map((_, i) => `<i class="${i === 0 ? "on" : ""}" onclick="swapPhoto(${i})"></i>`).join("")}</div>` : ""}
+    </div>
+
+    <div class="ptitle">
+      <h1>${P.name}</h1>
+      ${P.subtitle ? `<div class="jp">${P.subtitle}</div>` : ""}
+      <div class="price">${money(P.price)}</div>
+    </div>
+
+    ${P.intro ? `<p class="intro">${P.intro.replace(/\n/g, "<br>")}</p>` : ""}
+
+    <div class="ship-tags">
+      ${P.ship_methods.map((m) => `<span class="tag ${m}">${shipLabel(m)}${m === P.ship_primary ? " ·優先" : ""}</span>`).join("")}
+    </div>
+
+    <div class="leaf">❋</div>
+
+    ${P.description ? `<div class="card">
+      <div class="sec-title">產品說明</div>
+      ${P.description.split("\n").filter((x) => x.trim()).map((line) => {
+        const i = line.indexOf("｜");
+        return i > 0
+          ? `<div class="ic-block"><h3>${line.slice(0, i)}</h3><p>${line.slice(i + 1)}</p></div>`
+          : `<div class="ic-block"><p>${line}</p></div>`;
+      }).join("")}
+    </div>` : ""}
+
+    ${r.addons.length ? `<div class="card" style="margin-top:14px">
+      <div class="sec-title">加購</div>
+      ${r.addons.map((a) => {
+        const out = a.stock <= 0;
+        return `<div class="addon" style="${out ? "opacity:.45" : ""}">
+          <div class="box" id="ab${a.id}" ${out ? "" : `onclick="toggleAddon(${a.id},${a.price},'${a.name.replace(/'/g, "")}',${a.stock})"`}
+               style="${out ? "cursor:not-allowed;background:#f0ebe1" : ""}"></div>
+          <div class="an">${a.name}<small>${out ? "已售完" : (a.description || "")}</small></div>
+          <div class="ap">+${money(a.price)}</div>
+          <div class="stepper sm" id="as${a.id}" style="display:none">
+            <button onclick="addonQty(${a.id},-1,${a.stock})">−</button>
+            <span class="val" id="av${a.id}">1</span>
+            <button onclick="addonQty(${a.id},1,${a.stock})">＋</button>
+          </div>
+        </div>`;
+      }).join("")}
+    </div>` : ""}
+
+    <div class="card" style="margin-top:14px">
+      <div class="qty-row">
+        <span class="qty-label">數量</span>
+        <div class="stepper">
+          <button onclick="setQty(-1)" id="pdMinus" disabled>−</button>
+          <span class="val" id="pdQty">1</span>
+          <button onclick="setQty(1)">＋</button>
+        </div>
+      </div>
+      ${P.max_per_order > 0 ? `<div class="qty-hint" id="pdMaxHint">每張訂單最多 ${P.max_per_order} 個</div>` : ""}
+    </div>
+
+    <div style="margin-top:18px"><button class="btn" onclick="addNow()">加 入 購 物 車</button></div>
+    <footer data-s="footer_text"></footer>`;
+
+  window._photos = photos;
+})();
+
+function swapPhoto(i) {
+  document.getElementById("pdImg").src = imgSrc(window._photos[i]);
+  document.querySelectorAll(".gallery .dots i").forEach((e, n) => e.classList.toggle("on", n === i));
+}
+
+function setQty(d) {
+  const cap = P.max_per_order > 0 ? P.max_per_order : 99;
+  QTY = Math.max(1, Math.min(cap, QTY + d));
+  document.getElementById("pdQty").textContent = QTY;
+  document.getElementById("pdMinus").disabled = QTY <= 1;
+  const h = document.getElementById("pdMaxHint");
+  if (h) h.style.color = QTY >= cap ? "var(--warn)" : "var(--ink-soft)";
+}
+
+function toggleAddon(id, price, name, stock) {
+  if (ADDONS[id]) {
+    delete ADDONS[id];
+    document.getElementById("ab" + id).classList.remove("on");
+    document.getElementById("as" + id).style.display = "none";
+  } else {
+    ADDONS[id] = { id, qty: 1, price, name };
+    document.getElementById("ab" + id).classList.add("on");
+    document.getElementById("as" + id).style.display = "flex";
+    document.getElementById("av" + id).textContent = 1;
+  }
+}
+
+function addonQty(id, d, stock) {
+  if (!ADDONS[id]) return;
+  ADDONS[id].qty = Math.max(1, Math.min(Math.min(9, stock), ADDONS[id].qty + d));
+  document.getElementById("av" + id).textContent = ADDONS[id].qty;
+}
+
+function addNow() {
+  cartAdd(P.id, QTY, Object.values(ADDONS).map((a) => ({ id: a.id, qty: a.qty })));
+  document.getElementById("sheetTxt").textContent = P.name + " × " + QTY;
+  document.getElementById("sheet").classList.add("on");
+}
+</script>
+</body>
+</html>

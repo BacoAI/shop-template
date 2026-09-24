@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>後台管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@300;400;500;600;700&family=Noto+Sans+TC:wght@200;300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<!-- ═══ 登入 ═══ -->
+<div class="login-wrap" id="loginPage" style="display:none">
+  <div class="login-box">
+    <div class="lg" id="loginTitle">後台管理<small>A D M I N</small></div>
+    <div style="margin-top:26px">
+      <div class="f"><label>帳號</label><input id="lgUser" autocomplete="username"></div>
+      <div class="f"><label>密碼</label><input id="lgPass" type="password" autocomplete="current-password"></div>
+      <button class="b main" id="lgBtn" onclick="doLogin()">登 入</button>
+      <div class="login-err" id="lgErr"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 第一次登入:設定自己的帳號（出廠的 admin 會被換掉）═══ -->
+<div class="login-wrap" id="pwPage" style="display:none">
+  <div class="login-box">
+    <div class="lg">設定你的管理員帳號<small>第 一 次 登 入</small></div>
+    <div style="margin-top:24px">
+      <div class="f"><label>帳號（之後用這個登入）</label><input id="suUser" placeholder="建議用英文或數字" autocomplete="username"></div>
+      <div class="f"><label>密碼（至少 6 個字）</label><input id="suPass" type="password" autocomplete="new-password"></div>
+      <div class="f"><label>再輸入一次</label><input id="suPass2" type="password" autocomplete="new-password"></div>
+      <button class="b main" id="suBtn" onclick="doSetup()">建 立 帳 號</button>
+      <div class="login-err" id="suErr"></div>
+      <p class="login-hint">設定好之後,出廠的 <b>admin / admin</b> 就會被你這組取代、再也不能用。<br>
+        這組帳密請自己記好,忘記的話沒有「忘記密碼」可以按。</p>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 主體 ═══ -->
+<div id="app" style="display:none;width:100%">
+
+<div class="side">
+  <div class="lg" id="sideLg">後台<small>A D M I N</small></div>
+  <nav>
+    <a class="on" data-pane="prod" onclick="nav('prod',this)">商品設定</a>
+    <a data-pane="order" onclick="nav('order',this)">訂單系統</a>
+    <a data-pane="site" onclick="nav('site',this)">網站編輯</a>
+    <a data-pane="ship" onclick="nav('ship',this)">運費管理</a>
+    <a data-pane="sys" onclick="nav('sys',this)" id="navSys">系統管理</a>
+  </nav>
+  <div class="foot">
+    <b id="meName">—</b>
+    <span id="meRole"></span>　<span onclick="doLogout()">登出</span>
+  </div>
+</div>
+
+<main>
+
+<!-- ─── 商品設定 ─── -->
+<div class="pane on" id="p-prod">
+  <div id="prodList">
+    <div class="head"><h1>商品設定</h1><span class="sub">點商品卡片可檢視與編輯</span></div>
+    <div class="card">
+      <h2>目前商品</h2>
+      <div class="pgrid" id="pgrid"><div class="loading">載入中…</div></div>
+    </div>
+    <div class="card">
+      <h2>加購商品</h2>
+      <div class="tbwrap">
+        <table>
+          <thead><tr><th>名稱</th><th>說明</th><th>價格</th><th>庫存</th><th>狀態</th><th></th></tr></thead>
+          <tbody id="addonRows"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:13px"><button class="b gh sm" onclick="openAddon(0)">＋ 新增加購商品</button></div>
+    </div>
+  </div>
+
+  <div id="prodEdit" style="display:none">
+    <div class="head">
+      <h1 id="peTitle">編輯商品</h1>
+      <button class="b gh sm" onclick="backToList()">‹ 回商品列表</button>
+    </div>
+
+    <div class="card">
+      <h2>首頁顯示</h2>
+      <div class="row">
+        <div class="f"><label>產品名稱</label><input id="peName"></div>
+        <div class="f"><label>產品副標</label><input id="peSub"></div>
+      </div>
+      <div class="f" style="max-width:260px">
+        <label>產品縮圖</label>
+        <div class="photo-grid" id="peThumb"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>產品介紹頁</h2>
+      <div class="f"><label>產品介紹文字</label><textarea id="peIntro"></textarea></div>
+      <div class="f">
+        <label>產品照片（可多張）</label>
+        <div class="photo-grid" id="pePhotos"></div>
+      </div>
+      <div class="row">
+        <div class="f" style="max-width:160px"><label>產品價格</label><input type="number" id="pePrice"></div>
+        <div class="f" style="max-width:210px"><label>每張訂單最多買幾個</label><input type="number" id="peMax" placeholder="留空或 0 = 不限制"></div>
+        <div class="f" style="max-width:140px"><label>首頁排序</label><input type="number" id="peSort"></div>
+      </div>
+      <div class="f"><label>產品說明（一行一段,用「｜」隔開標題與內容）</label><textarea id="peDesc" style="min-height:110px"></textarea></div>
+    </div>
+
+    <div class="card">
+      <h2>配送方式</h2>
+      <p class="hint" style="margin-bottom:12px">可複選。沒勾的方式就不能用那種寄。選一個當「優先」——客人買多樣東西時,系統靠它決定整單怎麼寄。</p>
+      <div class="shipsel" id="peShip"></div>
+    </div>
+
+    <div class="card">
+      <h2>可加購的品項</h2>
+      <div id="peAddons" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+    </div>
+
+    <div class="card" id="peStockCard">
+      <h2>可出貨日期 &amp; 數量</h2>
+      <div class="calhead">
+        <button onclick="calMv(-1)">‹</button>
+        <span class="mm" id="calMM">—</span>
+        <button onclick="calMv(1)">›</button>
+      </div>
+      <div class="cal" id="cal"></div>
+      <div class="unsaved" id="unsaved" style="display:none">
+        <span>有 <b id="edCount">0</b> 個日期改過還沒儲存</span>
+        <span style="display:flex;gap:8px">
+          <button class="b gh sm" onclick="calReset()">放棄變更</button>
+          <button class="b main sm" onclick="calSave()">儲存日期設定</button>
+        </span>
+      </div>
+      <p class="hint" id="stockHint" style="margin-top:12px">先儲存商品,才能設定可出貨日期。</p>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:6px">
+      <button class="b rd" id="peOffBtn" onclick="toggleProductStatus()">下架</button>
+      <button class="b gh" onclick="backToList()">取消</button>
+      <button class="b main" id="peSaveBtn" onclick="saveProduct()">儲存商品</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── 訂單系統 ─── -->
+<div class="pane" id="p-order">
+  <div class="head"><h1>訂單系統</h1><span class="sub" id="orderSub">雙擊任一列可編輯</span></div>
+
+  <div class="card">
+    <div class="filters">
+      <div class="f"><label>日期類型</label><select id="fDateType" onchange="loadOrders()"><option value="created">訂購日</option><option value="ship">出貨日</option></select></div>
+      <div class="f"><label>起</label><input type="date" id="fFrom" onchange="loadOrders()"></div>
+      <div class="f"><label>迄</label><input type="date" id="fTo" onchange="loadOrders()"></div>
+      <div class="f"><label>付款狀態</label><select id="fPay" onchange="loadOrders()"><option value="">全部</option><option>已付款</option><option>未付款</option></select></div>
+      <div class="f"><label>訂單狀態</label><select id="fSt" onchange="loadOrders()"><option value="">全部</option><option>待處理</option><option>已處理</option><option>已作廢</option></select></div>
+      <div class="f"><label>配送</label><select id="fShip" onchange="loadOrders()"><option value="">全部</option><option value="normal">常溫</option><option value="cold">冷藏</option><option value="frozen">冷凍</option></select></div>
+      <div class="f search"><label>搜尋</label><input id="fQ" placeholder="姓名 / 電話 / 訂單編號 / 末五碼"></div>
+    </div>
+
+    <div class="bar">
+      <span class="lf" id="cntTxt">—</span>
+      <span class="rt">
+        <button class="b gh sm" onclick="openTrash()">垃圾桶</button>
+        <button class="b gh sm" onclick="openCols()">顯示欄位</button>
+        <button class="b tl sm" onclick="doExport()">匯出 CSV</button>
+      </span>
+    </div>
+
+    <div class="batchbar" id="batchbar" style="display:none">
+      <span>已選 <b id="selN">0</b> 筆</span>
+      <span class="acts">
+        <select id="bPay" onchange="batchDo('pay_status',this)"><option>批次改付款狀態</option><option>已付款</option><option>未付款</option></select>
+        <select id="bSt" onchange="batchDo('order_status',this)"><option>批次改訂單狀態</option><option>待處理</option><option>已處理</option><option>已作廢</option></select>
+        <button class="b gh sm" onclick="clearSel()">取消選取</button>
+      </span>
+    </div>
+
+    <div class="tbwrap"><table id="otb"><thead id="othead"></thead><tbody id="otbody"></tbody></table></div>
+  </div>
+</div>
+
+<!-- ─── 網站編輯 ─── -->
+<div class="pane" id="p-site">
+  <div class="head"><h1>網站編輯</h1><span class="sub">改完記得按儲存</span></div>
+
+  <div class="card">
+    <h2>營業狀態</h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+      <div style="min-width:0">
+        <div style="font-size:15px" id="bizLabel">—</div>
+        <div class="hint" id="bizHint" style="margin-top:3px">休假或忙不過來時關掉,前台會改成公告、購物車與下單一起停用。</div>
+      </div>
+      <div class="switch" id="bizSw" onclick="toggleBiz()"><i></i></div>
+    </div>
+    <div class="f" id="bizMsg" style="margin-top:14px;display:none">
+      <label>暫停接單時,前台顯示的文字</label>
+      <input id="stClosedNotice">
+    </div>
+  </div>
+
+  <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+    <div style="flex:1;min-width:340px">
+      <div class="card">
+        <h2>文字</h2>
+        <div class="f"><label>網站大標題</label><input id="stTitle" oninput="syncPreview()"></div>
+        <div class="f"><label>網站副標題</label><input id="stSub" oninput="syncPreview()"></div>
+        <div class="f"><label>首頁商品區標題</label><input id="stSection"></div>
+        <div class="f"><label>頁尾文字</label><input id="stFooter"></div>
+        <div class="f"><label>購物車補充說明區</label><textarea id="stCartNote"></textarea></div>
+      </div>
+
+      <div class="card">
+        <h2>匯款資訊</h2>
+        <div class="row">
+          <div class="f"><label>銀行（含代碼）</label><input id="stBankName" placeholder="例：國泰世華 013"></div>
+          <div class="f"><label>帳號</label><input id="stBankAcct"></div>
+        </div>
+        <div class="row">
+          <div class="f" style="max-width:200px"><label>匯款期限</label><input id="stPayDeadline" placeholder="例：2 日內"></div>
+          <div class="f" style="max-width:220px"><label>最少提前幾天出貨</label><input type="number" id="stLeadDays"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>下單完成頁文案</h2>
+        <div class="f"><label>標題</label><input id="stSuccessTitle"></div>
+        <div class="f"><label>說明（可用 *粗體*、{匯款期限}）</label><textarea id="stSuccessSub"></textarea></div>
+        <div class="f"><label>下方備註</label><textarea id="stSuccessNote"></textarea></div>
+      </div>
+    </div>
+
+    <div style="flex:1;min-width:300px">
+      <div class="card">
+        <h2>首頁大圖</h2>
+        <div class="photo-grid" id="heroPhotos"></div>
+      </div>
+      <div class="card">
+        <h2>預覽</h2>
+        <p class="hint" style="margin-bottom:12px">配色是固定的,不開放修改。</p>
+        <div class="preview" style="background:#ece3d4">
+          <div style="text-align:center">
+            <div class="pt" id="pvT" style="color:#5c7d77">—</div>
+            <div class="ps" id="pvS" style="color:#8a7c66">—</div>
+          </div>
+          <div class="pc" style="background:#faf6ee;color:#403628">商品卡片看起來會像這樣</div>
+          <div style="text-align:center"><span class="pbtn" style="background:#b5734a">加 入 購 物 車</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;margin-top:6px">
+    <button class="b main" id="siteSaveBtn" onclick="saveSite()">儲存網站設定</button>
+  </div>
+</div>
+
+<!-- ─── 運費管理 ─── -->
+<div class="pane" id="p-ship">
+  <div class="head"><h1>運費管理</h1><span class="sub">免運門檻只看商品小計,不含運費</span></div>
+  <div class="card">
+    <div class="tbwrap">
+      <table>
+        <thead><tr><th style="width:80px">啟用</th><th>配送方式</th><th style="width:170px">運費</th><th style="width:200px">免運門檻</th></tr></thead>
+        <tbody id="shipRows"></tbody>
+      </table>
+    </div>
+    <p class="hint" style="margin-top:13px">門檻填 0 = 這種配送不提供免運。停用的配送方式,商品編輯時就不會出現。</p>
+    <div style="margin-top:14px;display:flex;justify-content:flex-end"><button class="b main" id="shipSaveBtn" onclick="saveShipping()">儲存</button></div>
+  </div>
+</div>
+
+<!-- ─── 系統管理 ─── -->
+<div class="pane" id="p-sys">
+  <div class="head"><h1>系統管理</h1><span class="sub">只有「完整」權限看得到這一區</span></div>
+
+  <div class="card">
+    <h2>修改我的密碼</h2>
+    <div class="row">
+      <div class="f"><label>目前密碼</label><input type="password" id="myOld"></div>
+      <div class="f"><label>新密碼</label><input type="password" id="myNew"></div>
+      <div class="f"><label>再輸入一次</label><input type="password" id="myNew2"></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end"><button class="b main sm" onclick="changeMyPw()">更新密碼</button></div>
+  </div>
+
+  <div class="card">
+    <h2>下單通知信</h2>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div style="min-width:0">
+        <div style="font-size:15px">目前:<span style="color:var(--soft)">看伺服器有沒有設定金鑰</span></div>
+        <div class="hint" style="margin-top:3px">沒設定也能正常開店——客人下單後看得到完成頁,只是不會收到信。<br>
+          要啟用的話,在終端機執行 <b>npx wrangler secret put RESEND_API_KEY</b>（Resend 免費額度每月 3000 封）。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>後台帳號</h2>
+    <div class="tbwrap">
+      <table>
+        <thead><tr><th>帳號</th><th>權限</th><th>最後登入</th><th style="width:180px"></th></tr></thead>
+        <tbody id="adminRows"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:13px"><button class="b gh sm" onclick="openNewAdmin()">＋ 新增帳號</button></div>
+    <p class="hint" style="margin-top:12px">網站剛裝好時的出廠帳號是 <b style="color:var(--warn)">admin / admin</b>,第一次登入會要你設定自己的帳號名與密碼——設定完 admin 就不存在了。<br>
+      一般權限：可以操作所有東西,唯獨看不到「系統管理」這一區。<br>
+      系統至少會保留一個完整權限帳號,不會讓你把自己鎖在外面。</p>
+  </div>
+</div>
+
+</main>
+</div>
+
+<!-- ═══ 彈窗 ═══ -->
+
+<div class="mask" id="mOrder">
+  <div class="modal">
+    <div class="mh"><h3 id="moTitle">訂單</h3><button class="x" onclick="closeMask('mOrder')">×</button></div>
+    <div class="mb">
+      <div class="tabs"><a class="on" onclick="moTab('edit',this)">編輯內容</a><a onclick="moTab('rev',this)">版本紀錄</a></div>
+      <div id="mo-edit"></div>
+      <div id="mo-rev" style="display:none"></div>
+    </div>
+    <div class="mf">
+      <button class="b rd" onclick="deleteOrder()">刪除</button>
+      <button class="b gh" onclick="closeMask('mOrder')">取消</button>
+      <button class="b main" id="moSave" onclick="saveOrder()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<div class="mask" id="mDay">
+  <div class="modal sm">
+    <div class="mh"><h3 id="mdTitle">—</h3><button class="x" onclick="closeMask('mDay')">×</button></div>
+    <div class="mb">
+      <div class="f"><label>這天可出貨量</label><input type="number" id="mdQty" min="0"></div>
+      <p class="hint" id="mdHint">填 0 = 這天不出貨。</p>
+    </div>
+    <div class="mf"><button class="b gh" onclick="closeMask('mDay')">取消</button><button class="b main" onclick="dayOk()">確定</button></div>
+  </div>
+</div>
+
+<div class="mask" id="mCols">
+  <div class="modal sm">
+    <div class="mh"><h3>顯示欄位</h3><button class="x" onclick="closeMask('mCols')">×</button></div>
+    <div class="mb"><div id="colList"></div></div>
+    <div class="mf"><button class="b gh" onclick="closeMask('mCols')">取消</button><button class="b main" onclick="saveCols()">套用</button></div>
+  </div>
+</div>
+
+<div class="mask" id="mAdmin">
+  <div class="modal sm">
+    <div class="mh"><h3>新增後台帳號</h3><button class="x" onclick="closeMask('mAdmin')">×</button></div>
+    <div class="mb">
+      <div class="f"><label>帳號</label><input id="naUser" placeholder="英文或數字"></div>
+      <div class="f"><label>密碼（至少 6 個字）</label><input id="naPass" type="password"></div>
+      <div class="f"><label>權限</label><select id="naRole"><option value="normal">一般</option><option value="full">完整</option></select></div>
+      <p class="hint">一般權限看不到「系統管理」這一區,其餘功能都能用。</p>
+      <div class="login-err" id="naErr"></div>
+    </div>
+    <div class="mf"><button class="b gh" onclick="closeMask('mAdmin')">取消</button><button class="b main" onclick="createAdmin()">建立</button></div>
+  </div>
+</div>
+
+<div class="mask" id="mAddon">
+  <div class="modal sm">
+    <div class="mh"><h3 id="maTitle">加購商品</h3><button class="x" onclick="closeMask('mAddon')">×</button></div>
+    <div class="mb">
+      <div class="f"><label>名稱</label><input id="maName"></div>
+      <div class="f"><label>說明</label><input id="maDesc"></div>
+      <div class="row">
+        <div class="f"><label>價格</label><input type="number" id="maPrice"></div>
+        <div class="f"><label>庫存</label><input type="number" id="maStock"></div>
+      </div>
+      <div class="f"><label>狀態</label><select id="maStatus"><option value="on">啟用</option><option value="off">停用</option></select></div>
+    </div>
+    <div class="mf"><button class="b gh" onclick="closeMask('mAddon')">取消</button><button class="b main" onclick="saveAddon()">儲存</button></div>
+  </div>
+</div>
+
+<div class="mask" id="mTrash">
+  <div class="modal">
+    <div class="mh"><h3>垃圾桶</h3><button class="x" onclick="closeMask('mTrash')">×</button></div>
+    <div class="mb"><div id="trashBody"><div class="loading">載入中…</div></div></div>
+    <div class="mf"><button class="b gh" onclick="closeMask('mTrash')">關閉</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp" style="display:none">
+
+<script src="admin-app.js"></script>
+</body>
+</html>
