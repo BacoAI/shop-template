@@ -109,7 +109,7 @@
 
 點這顆按鈕，用你的 Cloudflare 帳號登入，剩下的它會自己做完：
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=REPO_URL_PLACEHOLDER)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/BacoAI/shop-template)
 
 它會幫你：複製一份程式碼到你自己的 GitHub、開一個資料庫、開一個照片倉庫、建好資料表、部署上線。
 
